@@ -1,9 +1,15 @@
+const cellInstanceArr = [];
+
 class Cell {
-  constructor(rowIdx, cellIdx) {
+  constructor(rowIdx, cellIdx, totalRows, totalCols) {
     this.rowIdx = rowIdx;
     this.cellIdx = cellIdx;
+    this.totalRows = totalRows;
     this.isMine = false;
     this.cellDiv = null;
+    this.isRevealed = false;
+    this.value = 0;
+    this.maxIdx = totalRows * totalCols - 1;
   }
 
   // add a new cell to the selected row
@@ -12,28 +18,82 @@ class Cell {
     const cellDiv = document.createElement('div');
     cellDiv.className = `cell-div`;
     cellDiv.addEventListener('click', this.onClick);
-    cellDiv.innerHTML ='<span class="cell-hide">0</span>'
-    // cellDiv.innerText = 0;
+    cellDiv.innerHTML ='<span class="cell-hide">'+this.value+'</span>'
     this.cellDiv = cellDiv;
     rowDiv.append(cellDiv);
   };
 
   // add a mine to the cell
   setMine() {
-    this.cellDiv.isMine = true;
-    this.cellDiv.getElementsByTagName('span')[0].innerText = 'M';
-    // this.cellDiv.innerText = 'M';
-    this.cellDiv.classList.add('mine');
+    this.isMine = true;
+    const span = this.cellDiv.getElementsByTagName('span')[0];
+    span.innerText = 'M';
+    span.classList.add('mine');
+  }
+
+  showCells() {
+    if (this.isMine) {
+      cellInstanceArr.forEach(cell => {
+        cell.showCell();
+      });
+      setTimeout(() => {
+        alert('Game Over!');
+      }, 100);
+    } else {
+      // if cell value is NOT 0, then just show that cell
+      // if cell value is 0, show neighbouring cells and if required, their neighbouring cells recursively
+      this.showCell();
+      const span = this.cellDiv.getElementsByTagName('span')[0];
+      if (+span.innerText === 0) {
+        const mineCellRow = Math.floor(this.cellIdx/this.totalRows);
+        
+        // left cell logic
+        if (this.cellIdx > 0) {
+          const leftCellIdx = this.cellIdx - 1;
+          const leftCellRow = Math.floor((leftCellIdx)/this.totalRows);
+          if (mineCellRow === leftCellRow && !cellInstanceArr[leftCellIdx].isRevealed) {
+            // recursively call the method with the context of the current cell as left cell is also 0
+            cellInstanceArr[leftCellIdx].showCells();
+          }
+        }
+
+        // right cell logic
+        const rightCellIdx = this.cellIdx + 1;
+        const rightCellRow = Math.floor((rightCellIdx)/this.totalRows);
+        if (mineCellRow === rightCellRow && !cellInstanceArr[rightCellIdx].isRevealed) {
+          // recursively call the method with the context of the current cell as left cell is also 0
+          cellInstanceArr[rightCellIdx].showCells();
+        }
+        
+        // upper cell logic
+        const upperCellIdx = this.cellIdx - this.totalRows;
+        if (upperCellIdx > 0) {
+          if (!cellInstanceArr[upperCellIdx].isRevealed) {
+            // recursively call the method with the context of the current cell as left cell is also 0
+            cellInstanceArr[upperCellIdx].showCells();
+          }
+        }
+
+        // below cell logic
+        const belowCellIdx = this.cellIdx + this.totalRows;
+        if (belowCellIdx <= this.maxIdx) {
+          if (!cellInstanceArr[belowCellIdx].isRevealed) {
+            cellInstanceArr[belowCellIdx].showCells();
+          }
+        }
+      }
+    }
+  }
+
+  showCell() {
+    const cellSpan = this.cellDiv.getElementsByTagName('span')[0];
+    cellSpan.classList.remove('cell-hide');
+    this.isRevealed = true;
   }
 
   // cell on click
   onClick = () => {
-    // console.log('clicked on: ', this.rowIdx, this.cellIdx);
-    const cellSpan = this.cellDiv.getElementsByTagName('span')[0];
-    if (this.cellDiv.isMine) {
-      cellSpan.classList.remove('cell-hide');
-      alert('Game Over!')
-    }
+    this.showCells();
   }
 }
 
@@ -41,7 +101,6 @@ class Cell {
 class Layout {
   width = 30;
   height = 30;
-  cellInstanceArr = []
   mineIdxArr = []
   maxIdx = -1;
   constructor(totalRows, totalCols, totalMines) {
@@ -59,9 +118,9 @@ class Layout {
       rowDiv.className = `row-${rowCnt} row-div`;
       mainDiv.append(rowDiv);
       for (let colCnt=0; colCnt<this.totalCols; colCnt++) {
-        const objCell = new Cell(rowCnt, this.cellInstanceArr.length);
+        const objCell = new Cell(rowCnt, cellInstanceArr.length, this.totalRows, this.totalCols);
         objCell.addCell();
-        this.cellInstanceArr.push(objCell);
+        cellInstanceArr.push(objCell);
       }
     }
   }
@@ -71,7 +130,7 @@ class Layout {
     while (this.mineIdxArr.length < this.totalMines) {
       const randIdx = Math.floor(Math.random() * this.maxIdx);
       if (!this.mineIdxArr.includes(randIdx)) {
-        this.cellInstanceArr[randIdx].setMine();
+        cellInstanceArr[randIdx].setMine();
         this.mineIdxArr.push(randIdx);
       }
     }
@@ -97,88 +156,80 @@ class Layout {
     const mineCellRow = Math.floor(mineIdx/this.totalRows);
     if (mineIdx > 0) {
       const leftCellRow = Math.floor((mineIdx - 1)/this.totalRows);
-      const leftCellDiv = this.cellInstanceArr[mineIdx - 1].cellDiv;
-      if (mineCellRow === leftCellRow && !leftCellDiv.isMine) {
+      const leftCellDiv = cellInstanceArr[mineIdx - 1].cellDiv;
+      if (mineCellRow === leftCellRow && !cellInstanceArr[mineIdx - 1].isMine) {
         const leftCellSpan = leftCellDiv.getElementsByTagName('span')[0];
         leftCellSpan.innerText = +leftCellSpan.innerText + 1;
-        // leftCellDiv.innerText = +leftCellDiv.innerText + 1;
       }
     }
     
     // if right cell's row is same as mineCellRow and right cell does not contain a mine,
     // add 1 to its existing cnt
     const rightCellRow = Math.floor((mineIdx + 1)/this.totalRows);
-    const rightCellDiv = this.cellInstanceArr[mineIdx + 1].cellDiv;
-    if (mineCellRow === rightCellRow && !rightCellDiv.isMine) {
+    const rightCellDiv = cellInstanceArr[mineIdx + 1].cellDiv;
+    if (mineCellRow === rightCellRow && !cellInstanceArr[mineIdx + 1].isMine) {
       const rightCellSpan = rightCellDiv.getElementsByTagName('span')[0];
       rightCellSpan.innerText = +rightCellSpan.innerText + 1;
-      // rightCellDiv.innerText = +rightCellDiv.innerText + 1;
     }
-  }
+  } //  plotNeighbourCells over
 
   plotUpperCells(mineIdx) {
     const upperCellIdx = mineIdx - this.totalRows;
     if (upperCellIdx > 0) {
       const upperCellRow = Math.floor(upperCellIdx/this.totalRows);
-      const upperCellDiv = this.cellInstanceArr[upperCellIdx].cellDiv;
-      if (!upperCellDiv.isMine) {
+      const upperCellDiv = cellInstanceArr[upperCellIdx].cellDiv;
+      if (!cellInstanceArr[upperCellIdx].isMine) {
         const upperCellSpan = upperCellDiv.getElementsByTagName('span')[0];
         upperCellSpan.innerText = +upperCellSpan.innerText + 1;
-        // upperCellDiv.innerText = +upperCellDiv.innerText + 1;
       }
 
-      // check left cell to the upper row cell
+      // check left, to the upper row cell
       const upperLeftCellRow = Math.floor((upperCellIdx - 1)/this.totalRows);
-      const upperLeftCellDiv = this.cellInstanceArr[upperCellIdx - 1].cellDiv;
-      if (upperCellRow === upperLeftCellRow && !upperLeftCellDiv.isMine) {
+      const upperLeftCellDiv = cellInstanceArr[upperCellIdx - 1].cellDiv;
+      if (upperCellRow === upperLeftCellRow && !cellInstanceArr[upperCellIdx - 1].isMine) {
         const upperLeftCellSpan = upperLeftCellDiv.getElementsByTagName('span')[0];
         upperLeftCellSpan.innerText = +upperLeftCellSpan.innerText + 1;
-        // upperLeftCellDiv.innerText = +upperLeftCellDiv.innerText + 1;
       }
 
-      // check right cell to the upper row cell
+      // check right, to the upper row cell
       const upperRightCellRow = Math.floor((upperCellIdx + 1)/this.totalRows);
-      const upperRightCellDiv = this.cellInstanceArr[upperCellIdx + 1].cellDiv;
-      if (upperCellRow === upperRightCellRow && !upperRightCellDiv.isMine) {
+      const upperRightCellDiv = cellInstanceArr[upperCellIdx + 1].cellDiv;
+      if (upperCellRow === upperRightCellRow && !cellInstanceArr[upperCellIdx + 1].isMine) {
         const upperRightCellSpan = upperRightCellDiv.getElementsByTagName('span')[0];
         upperRightCellSpan.innerText = +upperRightCellSpan.innerText + 1;
-        // upperRightCellDiv.innerText = +upperRightCellDiv.innerText + 1;
       }
     }
-  }
+  } //  plotUpperCells over
 
   plotBelowCells(mineIdx) {
     const belowCellIdx = mineIdx + this.totalRows;
     if (belowCellIdx <= this.maxIdx) {
       const belowCellRow = Math.floor(belowCellIdx/this.totalRows);
-      const belowCellDiv = this.cellInstanceArr[belowCellIdx].cellDiv;
-      if (!belowCellDiv.isMine) {
+      const belowCellDiv = cellInstanceArr[belowCellIdx].cellDiv;
+      if (!cellInstanceArr[belowCellIdx].isMine) {
         const belowCellSpan = belowCellDiv.getElementsByTagName('span')[0];
         belowCellSpan.innerText = +belowCellSpan.innerText + 1;
-        // belowCellDiv.innerText = +belowCellDiv.innerText + 1;
       }
 
-      // check left cell to the upper row cell
+      // check left, to the upper row cell
       const belowLeftCellRow = Math.floor((belowCellIdx - 1)/this.totalRows);
-      const belowLeftCellDiv = this.cellInstanceArr[belowCellIdx - 1].cellDiv;
-      if (belowCellRow === belowLeftCellRow && !belowLeftCellDiv.isMine) {
+      const belowLeftCellDiv = cellInstanceArr[belowCellIdx - 1].cellDiv;
+      if (belowCellRow === belowLeftCellRow && !cellInstanceArr[belowCellIdx - 1].isMine) {
         const belowLeftCellSpan = belowLeftCellDiv.getElementsByTagName('span')[0];
         belowLeftCellSpan.innerText = +belowLeftCellSpan.innerText + 1;
-        // belowLeftCellDiv.innerText = +belowLeftCellDiv.innerText + 1;
       }
 
-      // check right cell to the upper row cell
+      // check right, to the upper row cell
       if (belowCellIdx + 1 <= this.maxIdx) {
         const belowRightCellRow = Math.floor((belowCellIdx + 1)/this.totalRows);
-        const belowRightCellDiv = this.cellInstanceArr[belowCellIdx + 1].cellDiv;
-        if (belowCellRow === belowRightCellRow && !belowRightCellDiv.isMine) {
+        const belowRightCellDiv = cellInstanceArr[belowCellIdx + 1].cellDiv;
+        if (belowCellRow === belowRightCellRow && !cellInstanceArr[belowCellIdx + 1].isMine) {
           const belowRightCellSpan = belowRightCellDiv.getElementsByTagName('span')[0];
           belowRightCellSpan.innerText = +belowRightCellSpan.innerText + 1;
-          // belowRightCellDiv.innerText = +belowRightCellDiv.innerText + 1;
         }  
       }
     }
-  }
+  } //  plotBelowCells over
 }
 
 const layout = new Layout(10, 10, 10);
